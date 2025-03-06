@@ -57,4 +57,4 @@ with open(INPUT_FILE, 'r') as f:
     sn = inferSentiments(ner)
     print(sn)
     for i, result in enumerate(sn):
-      print("Sentiment:", i, result[0])
+      print("\nSentence:\n", ner[i], "\nSentiment:\n", result[0]) #pick the first result
