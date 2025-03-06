@@ -35,11 +35,12 @@ def ner_sentences(sentences):
   list_NERSentences = []
   for sentence in sentences:
     ner_spans = NLP_PIPELINE(sentence)
-    span = ner_spans[0] #get first NER span
-    left = sentence[:span['start']]
-    named_entity = sentence[span['start']:span['end']]
-    right = sentence[span['end']:]
-    list_NERSentences.append((left,named_entity,right))
+    for span in ner_spans:
+      left = sentence[:span['start']]
+      named_entity = sentence[span['start']:span['end']]
+      right = sentence[span['end']:]
+      list_NERSentences.append((left,named_entity,right))
+      break # Only take first sentence. I'm too lazy to figure out the datatype NLP_PIPELINE returns to do this properly. I hate python sm
   return list_NERSentences
 
 def inferSentiments(list_NERSentences):
@@ -50,7 +51,7 @@ with open(INPUT_FILE, 'r') as f:
   f.readline() # Skip headers
   for i in range(LINES_TO_READ):
     line = f.readline()
-    c = csv.reader([line])
+    c = csv.reader([line]).__next__();
     s = splitDoc2Sentences(c[4])
     ner = ner_sentences(s)
     sn = inferSentiments(ner)
