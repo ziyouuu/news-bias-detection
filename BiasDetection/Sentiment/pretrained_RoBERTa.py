@@ -91,9 +91,9 @@ def batch(output_file_name):
       output_file.write(c[0]+ "," + str(dict_sentiments['negative'])+ "," + str(dict_sentiments['neutral'])+ "," + str(dict_sentiments['positive']) + "\n")
   output_file.close()
 
-def ner_sentence_batch(tokenized_sentences):
+def ner_sentence_a(sents):
   list_NERSentences = []
-  for sentence in tokenized_sentences:
+  for sentence in sents:
     ner_spans = NLP_PIPELINE(sentence)
     for span in ner_spans:
       left = sentence[:span['start']]
@@ -108,7 +108,7 @@ def batch_psu_safe():
   output_file = open(ABS_FILE_PATH + "../../datasets/generated/news_dataset_sentiment_labels.csv", "w", buffering=1)
   output_file.write("unique_id,negative,neutral,positive\n")
   result = { 'unique_id': [], 'ner_sentences': [], 'sentiments': []}
-  for chunk in pd.read_csv(INPUT_FILE, chunksize=1000, usecols=['unique_id', 'article_text']):
+  for chunk in pd.read_csv(INPUT_FILE, chunksize=500, usecols=['unique_id', 'article_text']):
     unique_id = chunk['unique_id']
     sentiments = []
     print("=== CSV Imported. Starting Tokenizing ===")
@@ -122,24 +122,15 @@ def batch_psu_safe():
       docSentences.append(sents)
       doc_no_of_sentences.append(len(sents))
       for sent in doc.sents:
-        flat_sentences.append([token.text for token in sent])
+        flat_sentences.extend(sent.text)
     print("=== Tokenizing Completed. Starting NER ===")
-    ner_results = tqdm(NLP_PIPELINE(flat_sentences, batch_size=8),total=len(flat_sentences))
-    list_NERSentences = []
-    # Process the batched results
-    for sentences, ner_spans in zip(flat_sentences, ner_results):
-        # Skip if no entities were found
-        if not ner_spans:
-            continue
-        # Take the first entity from each sentence
-        span = ner_spans[0]
-        left = sentence[:span['start']]
-        named_entity = sentence[span['start']:span['end']]
-        right = sentence[span['end']:]
-        list_NERSentences.append((left, named_entity, right))
+    list_NERSentences = ner_sentence_a(flat_sentences)
     print("=== NER Complete. Starting Inference ===")
     sentiments = inferSentiments(list_NERSentences)
-
+    dict_sentiments = {'negative': 0, 'neutral': 0, 'positive': 0}
+    for i, result in enumerate(sn):
+      dict_sentiments[result[0]['class_label']]+= 1
+    print (dict_sentiments)
 
 def main():
   val = input("Pick mode:\n1. Sanity Check\n2. Create dump\n3. Create dump (psu safe)\n") 
