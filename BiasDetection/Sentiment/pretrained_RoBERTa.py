@@ -91,46 +91,59 @@ def batch(output_file_name):
       output_file.write(c[0]+ "," + str(dict_sentiments['negative'])+ "," + str(dict_sentiments['neutral'])+ "," + str(dict_sentiments['positive']) + "\n")
   output_file.close()
 
-def ner_sentence_a(sents):
+def ner_sentence_a(docs):
   list_NERSentences = []
-  for sentence in sents:
-    ner_spans = NLP_PIPELINE(sentence)
-    for span in ner_spans:
-      left = sentence[:span['start']]
-      named_entity = sentence[span['start']:span['end']]
-      right = sentence[span['end']:]
+  list_num_of_sents_in_doc = []
+  for doc in docs:
+    sents = list(doc.sents)
+    sentsCount = 0
+    for s in sents:
+      if (len(s.ents) == 0):
+        continue
+      text = s.text
+      ne = list(s.ents)[0].text
+      ner_idx = text.index(ne)
+      left = text[:ner_idx]
+      named_entity = ne
+      right = text[ner_idx + len(ne):]
       list_NERSentences.append((left,named_entity,right))
-      break # Only take first sentence. I'm too lazy to figure out the datatype NLP_PIPELINE returns to do this properly. I hate python sm
-  return list_NERSentences
+      sentsCount += 1
+    list_num_of_sents_in_doc.append(sentsCount)
+  return (list_NERSentences, list_num_of_sents_in_doc)
 
+CHUNK_SIZE = 100
 def batch_psu_safe():
   nlp = spacy.load("en_core_web_sm")
   output_file = open(ABS_FILE_PATH + "../../datasets/generated/news_dataset_sentiment_labels.csv", "w", buffering=1)
   output_file.write("unique_id,negative,neutral,positive\n")
   result = { 'unique_id': [], 'ner_sentences': [], 'sentiments': []}
-  for chunk in pd.read_csv(INPUT_FILE, chunksize=500, usecols=['unique_id', 'article_text']):
-    unique_id = chunk['unique_id']
+  chunkIndependentDocumentId = 0
+  for chunk in pd.read_csv(INPUT_FILE, chunksize=CHUNK_SIZE, usecols=['unique_id', 'article_text']):
+    unique_ids = chunk['unique_id']
     sentiments = []
     print("=== CSV Imported. Starting Tokenizing ===")
     articles = chunk['article_text'].tolist()
     docs = tqdm(nlp.pipe(articles,n_process=8), total=len(articles))
-    docSentences = [ ]
-    doc_no_of_sentences = []
-    flat_sentences = []
-    for doc in docs:
-      sents = list(doc.sents)
-      docSentences.append(sents)
-      doc_no_of_sentences.append(len(sents))
-      for sent in doc.sents:
-        flat_sentences.extend(sent.text)
+
     print("=== Tokenizing Completed. Starting NER ===")
-    list_NERSentences = ner_sentence_a(flat_sentences)
+    list_NERSentences, list_num_of_sents_in_doc = ner_sentence_a(docs)
     print("=== NER Complete. Starting Inference ===")
     sentiments = inferSentiments(list_NERSentences)
     dict_sentiments = {'negative': 0, 'neutral': 0, 'positive': 0}
-    for i, result in enumerate(sn):
+    documentIdx = 0
+    sentencesIdx = 0
+    for i, result in enumerate(sentiments):
+      if (list_num_of_sents_in_doc[documentIdx] == sentencesIdx):
+        output_file.write(f'{unique_ids[chunkIndependentDocumentId]},{dict_sentiments["negative"]},{dict_sentiments["neutral"]},{dict_sentiments["positive"]}\n')
+        dict_sentiments = {'negative': 0, 'neutral': 0, 'positive': 0}
+        documentIdx += 1
+        chunkIndependentDocumentId +=1
+        sentencesIdx = 0
       dict_sentiments[result[0]['class_label']]+= 1
-    print (dict_sentiments)
+      sentencesIdx+=1
+    output_file.write(f'{unique_ids[chunkIndependentDocumentId]},{dict_sentiments["negative"]},{dict_sentiments["neutral"]},{dict_sentiments["positive"]}\n')
+    chunkIndependentDocumentId +=1
+  output_file.close()
 
 def main():
   val = input("Pick mode:\n1. Sanity Check\n2. Create dump\n3. Create dump (psu safe)\n") 
