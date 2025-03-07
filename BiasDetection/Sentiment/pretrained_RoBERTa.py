@@ -143,6 +143,7 @@ def batch_psu_safe():
       sentencesIdx+=1
     output_file.write(f'{unique_ids[chunkIndependentDocumentId]},{dict_sentiments["negative"]},{dict_sentiments["neutral"]},{dict_sentiments["positive"]}\n')
     chunkIndependentDocumentId +=1
+    clear_lines(6)
   output_file.close()
 
 def main():
