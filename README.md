@@ -42,4 +42,5 @@ pip install nltk NewsSentiment==1.2.28
 ```sh
 python -c "import nltk; nltk.download('punkt')"
 ```
+
 6. You're ready!
